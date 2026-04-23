@@ -2,8 +2,10 @@
 <html lang="pt-BR">
 <head>
     <meta charset="UTF-8">
-    <title>Ponto Flexível com Motivos</title>
+    <title>Calculadora de Ponto</title>
+    
     <link rel="icon" type="image/png" href="rieps.png">
+    
     <style>
         body { font-family: sans-serif; max-width: 360px; margin: 40px auto; padding: 20px; background: #202124; color: #e8eaed; border-radius: 8px; }
         h2 { margin-top: 0; border-bottom: 1px solid #5f6368; padding-bottom: 10px; }
@@ -28,9 +30,11 @@
 
         textarea { width: 100%; height: 260px; background: #171717; color: #e8eaed; border: 1px solid #5f6368; padding: 10px; box-sizing: border-box; font-family: monospace; font-size: 15px; border-radius: 5px; resize: vertical;}
         
-        .controls { display: flex; gap: 10px; margin-top: 10px; }
-        .controls button { flex: 1; padding: 10px; font-size: 14px; background: #5f6368; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold;}
+        .controls { display: flex; gap: 10px; margin-top: 10px; flex-wrap: wrap;}
+        .controls button { flex: 1; min-width: 80px; padding: 10px; font-size: 14px; background: #5f6368; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold;}
         .controls button:hover { background: #757a80; }
+        .btn-limpar { background: #d93025 !important; }
+        .btn-limpar:hover { background: #ea4335 !important; }
     </style>
 </head>
 <body>
@@ -61,6 +65,7 @@
     <div class="controls">
         <button onclick="copiarTexto()">Copiar</button>
         <button onclick="baixarTXT()">Salvar TXT</button>
+        <button class="btn-limpar" onclick="limparTexto()">Limpar</button>
     </div>
 
     <script>
@@ -100,7 +105,9 @@
             document.getElementById('btnEntrei').disabled = estadoAtual !== 'fora';
             document.getElementById('btnPausa').disabled = estadoAtual !== 'trabalhando';
             document.getElementById('btnVoltei').disabled = estadoAtual !== 'pausado';
-            document.getElementById('btnSaida').disabled = estadoAtual === 'fora';
+            
+            // Trava de segurança: impede de clicar em Saí se você esqueceu de registrar o Voltei
+            document.getElementById('btnSaida').disabled = estadoAtual === 'fora' || estadoAtual === 'pausado';
         }
 
         function registrar(acao) {
@@ -129,10 +136,13 @@
                 estadoAtual = 'trabalhando';
             } 
             else if (acao === 'Pausa') {
-                // Abre a janela perguntando o motivo
                 let motivo = prompt("Motivo da pausa? (Deixe em branco se não quiser especificar)", "Almoço");
                 
-                // Formata o texto dependendo se você digitou algo ou não
+                // Se o usuário clicou em "Cancelar" no prompt, aborta a função
+                if (motivo === null) {
+                    return;
+                }
+                
                 let textoPausa = (motivo && motivo.trim() !== "") ? `Pausa (${motivo}):` : `Pausa:`;
                 
                 textarea.value += `${textoPausa} ${horaMarcada}\n`;
@@ -174,6 +184,16 @@
             link.href = URL.createObjectURL(blob);
             link.download = "registro_ponto.txt";
             link.click();
+        }
+
+        function limparTexto() {
+            if(confirm("Tem certeza que deseja apagar todo o registro?")) {
+                document.getElementById('registro').value = '';
+                estadoAtual = 'fora';
+                minutosAcumulados = 0;
+                ultimaMarcacaoTempo = null;
+                atualizarBotoes();
+            }
         }
     </script>
 </body>
