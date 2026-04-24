@@ -73,14 +73,45 @@
         let minutosAcumulados = 0;
         let ultimaMarcacaoTempo = null; 
 
-        document.getElementById('dataAtual').valueAsDate = new Date();
+        // Inicialização
         setarHoraAtual();
+        carregarMemoria(); // Chama a função que busca os dados salvos
+
+        // ====== FUNÇÕES DE MEMÓRIA (localStorage) ======
+        function salvarMemoria() {
+            localStorage.setItem('ponto_estado', estadoAtual);
+            localStorage.setItem('ponto_minutos', minutosAcumulados.toString());
+            localStorage.setItem('ponto_ultimaHora', ultimaMarcacaoTempo || '');
+            localStorage.setItem('ponto_texto', document.getElementById('registro').value);
+        }
+
+        function carregarMemoria() {
+            if (localStorage.getItem('ponto_estado')) {
+                estadoAtual = localStorage.getItem('ponto_estado');
+                minutosAcumulados = parseInt(localStorage.getItem('ponto_minutos')) || 0;
+                
+                let horaSalva = localStorage.getItem('ponto_ultimaHora');
+                ultimaMarcacaoTempo = horaSalva === '' ? null : horaSalva;
+                
+                document.getElementById('registro').value = localStorage.getItem('ponto_texto') || '';
+                
+                atualizarBotoes();
+                const textarea = document.getElementById('registro');
+                textarea.scrollTop = textarea.scrollHeight;
+            }
+        }
+        // ===============================================
 
         function setarHoraAtual() {
             const agora = new Date();
             const horas = agora.getHours().toString().padStart(2, '0');
             const minutos = agora.getMinutes().toString().padStart(2, '0');
             document.getElementById('horaAcao').value = `${horas}:${minutos}`;
+
+            const ano = agora.getFullYear();
+            const mes = String(agora.getMonth() + 1).padStart(2, '0');
+            const dia = String(agora.getDate()).padStart(2, '0');
+            document.getElementById('dataAtual').value = `${ano}-${mes}-${dia}`;
         }
 
         function converterParaMinutos(horaStr) {
@@ -105,8 +136,6 @@
             document.getElementById('btnEntrei').disabled = estadoAtual !== 'fora';
             document.getElementById('btnPausa').disabled = estadoAtual !== 'trabalhando';
             document.getElementById('btnVoltei').disabled = estadoAtual !== 'pausado';
-            
-            // Trava de segurança: impede de clicar em Saí se você esqueceu de registrar o Voltei
             document.getElementById('btnSaida').disabled = estadoAtual === 'fora' || estadoAtual === 'pausado';
         }
 
@@ -138,10 +167,7 @@
             else if (acao === 'Pausa') {
                 let motivo = prompt("Motivo da pausa? (Deixe em branco se não quiser especificar)", "Almoço");
                 
-                // Se o usuário clicou em "Cancelar" no prompt, aborta a função
-                if (motivo === null) {
-                    return;
-                }
+                if (motivo === null) return;
                 
                 let textoPausa = (motivo && motivo.trim() !== "") ? `Pausa (${motivo}):` : `Pausa:`;
                 
@@ -168,6 +194,9 @@
             atualizarBotoes();
             textarea.scrollTop = textarea.scrollHeight;
             setarHoraAtual(); 
+            
+            // Grava tudo no disco após qualquer alteração
+            salvarMemoria(); 
         }
 
         function copiarTexto() {
@@ -193,6 +222,9 @@
                 minutosAcumulados = 0;
                 ultimaMarcacaoTempo = null;
                 atualizarBotoes();
+                
+                // Limpa do disco também
+                salvarMemoria(); 
             }
         }
     </script>
