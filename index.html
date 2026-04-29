@@ -49,7 +49,7 @@
 
     <div id="tela-login" style="display: none; padding: 20px; background: #303134; border-radius: 8px; border: 1px solid #5f6368; text-align: center; margin-top: 50px;">
         <h2 style="margin-top: 0; border: none;">Acesso ao Sistema</h2>
-        <input type="email" id="emailLogin" class="input-login" placeholder="E-mail do Estúdio">
+        <input type="email" id="emailLogin" class="input-login" placeholder="E-mail">
         <input type="password" id="senhaLogin" class="input-login" placeholder="Senha">
         <button id="btn-entrar" class="btn-login" onclick="fazerLogin()">Entrar</button>
         <p id="msg-erro" style="color: #f28b82; font-size: 14px; display: none; margin-top: 15px; font-weight: bold;"></p>
@@ -98,6 +98,7 @@
         import { getFirestore, collection, addDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/12.12.1/firebase-firestore.js";
 
         //API CONFIG
+        // Para o proximo maluco que ver esse codigo - Aqui troca o API KEY (só se precisar)
         const firebaseConfig = {
             apiKey: "AIzaSyCXTYo9OYyF8QyeETlvoTfB78VLuyohULU", 
             authDomain: "calculadora-de-horas-rieps.firebaseapp.com",
@@ -119,7 +120,7 @@
                     let novoNome = "";
                     
                     while (!novoNome || novoNome.trim() === "") {
-                        novoNome = prompt("⚠️ PRIMEIRO ACESSO ⚠️\n\nDigite o seu PRIMEIRO NOME para o sistema gerar a sua planilha.\n\nRegra: Mantenha simples. Sem sobrenomes ou espaços (Ex: Gabriel, Joao, Maria).");
+                        novoNome = prompt(" PRIMEIRO ACESSO \n\nDigite o seu PRIMEIRO NOME para o sistema gerar a sua planilha.\n\nRegra: Mantenha simples. Sem sobrenomes ou espaços (Ex: Gabriel, Joao, Maria).");
                         
                         if (novoNome === null) {
                             signOut(auth);
@@ -127,7 +128,7 @@
                         }
                     }
 
-                    // A MÁGICA DA LIMPEZA: Pega só a primeira palavra e padroniza (Ex: " gAbRiEl " -> "Gabriel")
+                    //Padronização: (Ex: " jOHN " -> "John")
                     let nomeLimpo = novoNome.trim().split(' ')[0];
                     nomeLimpo = nomeLimpo.charAt(0).toUpperCase() + nomeLimpo.slice(1).toLowerCase();
                     
@@ -176,7 +177,7 @@
             const usuario = auth.currentUser;
             if (!usuario) return;
 
-            // O Nickname agora é garantido e inalterável
+            // O Nickname agora é garantido
             const nomeIntegrante = usuario.displayName;
 
             const dadosPonto = {
@@ -195,7 +196,7 @@
                 await addDoc(collection(db, "pontos_estudio"), { ...dadosPonto, timestamp: serverTimestamp() });
                 
                 // 2. Envia para a Planilha JANGADA
-                // ATENÇÃO: COLE AQUI O URL NOVO GERADO PELO APPS SCRIPT
+                // Para o proximo maluco que ver esse codigo - Aqui troca o link do script para a planilha
                 const urlPlanilha = "https://script.google.com/macros/s/AKfycbxfp7vKgzkgZdb-QYa_ULPuILMNyboACWNPuwXjCDsG_5Hb27cWrEj41dW1eJIDXCRnjQ/exec"; 
                 fetch(urlPlanilha, { method: 'POST', mode: 'no-cors', body: JSON.stringify(dadosPonto) });
 
