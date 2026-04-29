@@ -30,9 +30,11 @@
 
         textarea { width: 100%; height: 260px; background: #171717; color: #e8eaed; border: 1px solid #5f6368; padding: 10px; box-sizing: border-box; font-family: monospace; font-size: 15px; border-radius: 5px; resize: vertical;}
         
-        .controls { display: flex; gap: 10px; margin-top: 10px; flex-wrap: wrap;}
-        .controls button { flex: 1; min-width: 80px; padding: 10px; font-size: 14px; background: #5f6368; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold;}
+        .controls { display: flex; gap: 8px; margin-top: 10px; flex-wrap: wrap;}
+        .controls button { flex: 1; min-width: 75px; padding: 10px; font-size: 13px; background: #5f6368; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold;}
         .controls button:hover { background: #757a80; }
+        .btn-desfazer { background: #f6c844 !important; color: #202124 !important; }
+        .btn-desfazer:hover { background: #e5b633 !important; }
         .btn-limpar { background: #d93025 !important; }
         .btn-limpar:hover { background: #ea4335 !important; }
     </style>
@@ -64,7 +66,8 @@
     
     <div class="controls">
         <button onclick="copiarTexto()">Copiar</button>
-        <button onclick="baixarTXT()">Salvar TXT</button>
+        <button onclick="baixarTXT()">Salvar</button>
+        <button class="btn-desfazer" onclick="desfazer()" title="Atalho: Ctrl+Z">Desfazer</button>
         <button class="btn-limpar" onclick="limparTexto()">Limpar</button>
     </div>
 
@@ -72,161 +75,43 @@
         let estadoAtual = 'fora'; 
         let minutosAcumulados = 0;
         let ultimaMarcacaoTempo = null; 
+        let historicoDeAcoes = []; // Nossa máquina do tempo
 
         // Inicialização
         setarHoraAtual();
-        carregarMemoria(); // Chama a função que busca os dados salvos
+        carregarMemoria(); 
 
-        // ====== FUNÇÕES DE MEMÓRIA (localStorage) ======
-        function salvarMemoria() {
-            localStorage.setItem('ponto_estado', estadoAtual);
-            localStorage.setItem('ponto_minutos', minutosAcumulados.toString());
-            localStorage.setItem('ponto_ultimaHora', ultimaMarcacaoTempo || '');
-            localStorage.setItem('ponto_texto', document.getElementById('registro').value);
-        }
-
-        function carregarMemoria() {
-            if (localStorage.getItem('ponto_estado')) {
-                estadoAtual = localStorage.getItem('ponto_estado');
-                minutosAcumulados = parseInt(localStorage.getItem('ponto_minutos')) || 0;
-                
-                let horaSalva = localStorage.getItem('ponto_ultimaHora');
-                ultimaMarcacaoTempo = horaSalva === '' ? null : horaSalva;
-                
-                document.getElementById('registro').value = localStorage.getItem('ponto_texto') || '';
-                
-                atualizarBotoes();
-                const textarea = document.getElementById('registro');
-                textarea.scrollTop = textarea.scrollHeight;
+        // Escuta o atalho Ctrl + Z no teclado
+        document.addEventListener('keydown', function(event) {
+            if (event.ctrlKey && event.key === 'z') {
+                // Só ativa o nosso Ctrl+Z se o usuário NÃO estiver digitando ativamente no textarea
+                if (document.activeElement !== document.getElementById('registro')) {
+                    event.preventDefault(); // Impede o comportamento padrão do navegador
+                    desfazer();
+                }
             }
-        }
-        // ===============================================
+        });
 
-        function setarHoraAtual() {
-            const agora = new Date();
-            const horas = agora.getHours().toString().padStart(2, '0');
-            const minutos = agora.getMinutes().toString().padStart(2, '0');
-            document.getElementById('horaAcao').value = `${horas}:${minutos}`;
-
-            const ano = agora.getFullYear();
-            const mes = String(agora.getMonth() + 1).padStart(2, '0');
-            const dia = String(agora.getDate()).padStart(2, '0');
-            document.getElementById('dataAtual').value = `${ano}-${mes}-${dia}`;
+        function tirarFotoDoEstado() {
+            historicoDeAcoes.push({
+                estadoAtual: estadoAtual,
+                minutosAcumulados: minutosAcumulados,
+                ultimaMarcacaoTempo: ultimaMarcacaoTempo,
+                texto: document.getElementById('registro').value
+            });
+            // Mantém apenas os últimos 15 passos para não pesar a memória
+            if(historicoDeAcoes.length > 15) historicoDeAcoes.shift(); 
         }
 
-        function converterParaMinutos(horaStr) {
-            let [h, m] = horaStr.split(':').map(Number);
-            return (h * 60) + m;
-        }
-
-        function calcularDiferencaEmMinutos(horaInicio, horaFim) {
-            let inicio = converterParaMinutos(horaInicio);
-            let fim = converterParaMinutos(horaFim);
-            if (fim < inicio) fim += (24 * 60);
-            return fim - inicio;
-        }
-
-        function formatarMinutosParaHoras(totalMinutos) {
-            let h = Math.floor(totalMinutos / 60);
-            let m = totalMinutos % 60;
-            return `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}`;
-        }
-
-        function atualizarBotoes() {
-            document.getElementById('btnEntrei').disabled = estadoAtual !== 'fora';
-            document.getElementById('btnPausa').disabled = estadoAtual !== 'trabalhando';
-            document.getElementById('btnVoltei').disabled = estadoAtual !== 'pausado';
-            document.getElementById('btnSaida').disabled = estadoAtual === 'fora' || estadoAtual === 'pausado';
-        }
-
-        function registrar(acao) {
-            const horaMarcada = document.getElementById('horaAcao').value;
-            const textarea = document.getElementById('registro');
-            
-            if (!horaMarcada) {
-                alert("Por favor, defina um horário válido.");
+        function desfazer() {
+            if (historicoDeAcoes.length === 0) {
+                alert("Nada para desfazer!");
                 return;
             }
-
-            if (acao === 'Entrei') {
-                const dataInput = document.getElementById('dataAtual').value;
-                let dataObj = new Date(dataInput + 'T12:00:00'); 
-                const diasSemana = ['Domingo', 'Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado'];
-                const nomeDia = diasSemana[dataObj.getDay()];
-                const dataStr = dataObj.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
-                
-                if (textarea.value !== "") textarea.value += `\n`; 
-                
-                textarea.value += `${nomeDia} (${dataStr}):\n`;
-                textarea.value += `Entrei: ${horaMarcada}\n`;
-                
-                ultimaMarcacaoTempo = horaMarcada;
-                minutosAcumulados = 0;
-                estadoAtual = 'trabalhando';
-            } 
-            else if (acao === 'Pausa') {
-                let motivo = prompt("Motivo da pausa? (Deixe em branco se não quiser especificar)", "Almoço");
-                
-                if (motivo === null) return;
-                
-                let textoPausa = (motivo && motivo.trim() !== "") ? `Pausa (${motivo}):` : `Pausa:`;
-                
-                textarea.value += `${textoPausa} ${horaMarcada}\n`;
-                minutosAcumulados += calcularDiferencaEmMinutos(ultimaMarcacaoTempo, horaMarcada);
-                estadoAtual = 'pausado';
-            } 
-            else if (acao === 'Voltei') {
-                textarea.value += `Voltei: ${horaMarcada}\n`;
-                ultimaMarcacaoTempo = horaMarcada;
-                estadoAtual = 'trabalhando';
-            } 
-            else if (acao === 'Saí') {
-                textarea.value += `Saí: ${horaMarcada}\n`;
-                
-                if (estadoAtual === 'trabalhando') {
-                    minutosAcumulados += calcularDiferencaEmMinutos(ultimaMarcacaoTempo, horaMarcada);
-                }
-                
-                textarea.value += `Tempo: ${formatarMinutosParaHoras(minutosAcumulados)}h\n\n`;
-                estadoAtual = 'fora';
-            }
-
-            atualizarBotoes();
-            textarea.scrollTop = textarea.scrollHeight;
-            setarHoraAtual(); 
             
-            // Grava tudo no disco após qualquer alteração
-            salvarMemoria(); 
-        }
-
-        function copiarTexto() {
-            const textarea = document.getElementById('registro');
-            textarea.select();
-            document.execCommand('copy');
-        }
-
-        function baixarTXT() {
-            const texto = document.getElementById('registro').value;
-            if(!texto) return;
-            const blob = new Blob([texto], { type: "text/plain" });
-            const link = document.createElement("a");
-            link.href = URL.createObjectURL(blob);
-            link.download = "registro_ponto.txt";
-            link.click();
-        }
-
-        function limparTexto() {
-            if(confirm("Tem certeza que deseja apagar todo o registro?")) {
-                document.getElementById('registro').value = '';
-                estadoAtual = 'fora';
-                minutosAcumulados = 0;
-                ultimaMarcacaoTempo = null;
-                atualizarBotoes();
-                
-                // Limpa do disco também
-                salvarMemoria(); 
-            }
-        }
-    </script>
-</body>
-</html>
+            // Pega o último estado salvo
+            const estadoAnterior = historicoDeAcoes.pop();
+            
+            estadoAtual = estadoAnterior.estadoAtual;
+            minutosAcumulados = estadoAnterior.minutosAcumulados;
+            ultimaMarcacaoTempo = estado
