@@ -95,7 +95,7 @@
 
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/12.12.1/firebase-app.js";
-        import { getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.12.1/firebase-auth.js";
+        import { getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged, updateProfile } from "https://www.gstatic.com/firebasejs/12.12.1/firebase-auth.js";
         import { getFirestore, collection, addDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/12.12.1/firebase-firestore.js";
 
         //API CONFIG
@@ -113,11 +113,13 @@
         const auth = getAuth(app);
         const db = getFirestore(app);
 
-        // --- SISTEMA DE LOGIN E USERNAME ---
+       // --- SISTEMA DE LOGIN E USERNAME ---
         onAuthStateChanged(auth, (user) => {
             if (user) {
-                const nomeExtraido = user.email.split('@')[0];
-                document.getElementById('nome-usuario').innerText = `Olá, ${nomeExtraido}`;
+                // Inteligência nova: Se tiver um displayName salvo, usa ele. Se não tiver, corta o e-mail.
+                const nomeExibicao = user.displayName || user.email.split('@')[0];
+                
+                document.getElementById('nome-usuario').innerText = `Olá, ${nomeExibicao}`;
                 document.getElementById('tela-login').style.display = 'none';
                 document.getElementById('tela-calculadora').style.display = 'block';
                 window.setarHoraAtual();
@@ -127,6 +129,24 @@
                 document.getElementById('tela-calculadora').style.display = 'none';
             }
         });
+
+        // --- FUNÇÃO PARA MUDAR O NICKNAME ---
+        window.mudarNome = function() {
+            const usuario = auth.currentUser;
+            if (!usuario) return;
+            
+            // Abre uma janelinha para a pessoa digitar o nome
+            const novoNome = prompt("Digite o nome ou apelido que deseja usar:", usuario.displayName || "");
+            
+            // Se ela digitou algo e deu OK, salva na nuvem permanentemente
+            if (novoNome && novoNome.trim() !== "") {
+                updateProfile(usuario, { displayName: novoNome.trim() })
+                .then(() => {
+                    document.getElementById('nome-usuario').innerText = `Olá, ${novoNome.trim()}`;
+                })
+                .catch((erro) => console.error("Erro ao mudar nome:", erro));
+            }
+        }
 
         window.fazerLogin = function() {
             const email = document.getElementById('emailLogin').value;
