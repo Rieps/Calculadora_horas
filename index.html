@@ -4,12 +4,13 @@
     <meta charset="UTF-8">
     <title>Calculadora de Ponto</title>
     
-    <link rel="icon" type="image/png" href="favicon.png">
+    <link rel="icon" type="image/png" href="rieps.png">
     
     <style>
         body { font-family: sans-serif; max-width: 360px; margin: 40px auto; padding: 20px; background: #202124; color: #e8eaed; border-radius: 8px; }
         h2 { margin-top: 0; border-bottom: 1px solid #5f6368; padding-bottom: 10px; }
         
+        /* ESTILOS DA CALCULADORA */
         .relogio-container { background: #303134; padding: 15px; border-radius: 8px; margin-bottom: 20px; border: 1px solid #5f6368;}
         .campo-hora { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px;}
         .campo-hora label { font-weight: bold; font-size: 14px;}
@@ -37,54 +38,139 @@
         .btn-desfazer:hover { background: #e5b633 !important; }
         .btn-limpar { background: #d93025 !important; }
         .btn-limpar:hover { background: #ea4335 !important; }
+
+        /* ESTILOS DO LOGIN */
+        .input-login { width: 100%; margin-bottom: 15px; background: #171717; color: white; border: 1px solid #5f6368; padding: 12px; border-radius: 4px; box-sizing: border-box; font-size: 15px;}
+        .btn-login { width: 100%; background: #4285f4; color: white; border: none; padding: 12px; border-radius: 4px; cursor: pointer; font-size: 16px; font-weight: bold; transition: 0.2s;}
+        .btn-login:hover { background: #5c97f5; }
     </style>
 </head>
 <body>
 
-    <h2>Controle de Ponto</h2>
-    
-    <div class="relogio-container">
-        <div class="campo-hora" style="margin-bottom: 15px;">
-            <label>Data:</label>
-            <input type="date" id="dataAtual">
+    <div id="tela-login" style="display: none; padding: 20px; background: #303134; border-radius: 8px; border: 1px solid #5f6368; text-align: center; margin-top: 50px;">
+        <h2 style="margin-top: 0; border: none;">Acesso ao Sistema</h2>
+        <input type="email" id="emailLogin" class="input-login" placeholder="E-mail do Estúdio">
+        <input type="password" id="senhaLogin" class="input-login" placeholder="Senha">
+        
+        <button id="btn-entrar" class="btn-login" onclick="fazerLogin()">Entrar</button>
+        <p id="msg-erro" style="color: #f28b82; font-size: 14px; display: none; margin-top: 15px; font-weight: bold;"></p>
+    </div>
+
+    <div id="tela-calculadora" style="display: none;">
+        <h2>Controle de Ponto 
+            <button onclick="fazerLogout()" style="float: right; background: transparent; color: #f28b82; border: none; cursor: pointer; font-size: 14px; text-decoration: underline; padding-top: 5px;">Sair</button>
+        </h2>
+        
+        <div class="relogio-container">
+            <div class="campo-hora" style="margin-bottom: 15px;">
+                <label>Data:</label>
+                <input type="date" id="dataAtual">
+            </div>
+            <div class="campo-hora">
+                <label>Horário do Registro:</label>
+                <input type="time" id="horaAcao">
+            </div>
+            <button class="btn-agora" onclick="setarHoraAtual()" style="width: 100%;">Atualizar para Agora</button>
         </div>
-        <div class="campo-hora">
-            <label>Horário do Registro:</label>
-            <input type="time" id="horaAcao">
+
+        <div class="botoes-acao">
+            <button id="btnEntrei" class="btn-entrada" onclick="registrar('Entrei')">Entrei</button>
+            <button id="btnPausa" class="btn-pausa" onclick="registrar('Pausa')" disabled>Pausa</button>
+            <button id="btnVoltei" class="btn-voltei" onclick="registrar('Voltei')" disabled>Voltei</button>
+            <button id="btnSaida" class="btn-saida" onclick="registrar('Saí')" disabled>Saí</button>
         </div>
-        <button class="btn-agora" onclick="setarHoraAtual()" style="width: 100%;">Atualizar para Agora</button>
+
+        <textarea id="registro" placeholder="Seu registro aparecerá aqui..."></textarea>
+        
+        <div class="controls">
+            <button onclick="copiarTexto()">Copiar</button>
+            <button onclick="baixarTXT()">Salvar</button>
+            <button class="btn-desfazer" onclick="desfazer()" title="Atalho: Ctrl+Z">Desfazer</button>
+            <button class="btn-limpar" onclick="limparTexto()">Limpar</button>
+        </div>
     </div>
 
-    <div class="botoes-acao">
-        <button id="btnEntrei" class="btn-entrada" onclick="registrar('Entrei')">Entrei</button>
-        <button id="btnPausa" class="btn-pausa" onclick="registrar('Pausa')" disabled>Pausa</button>
-        <button id="btnVoltei" class="btn-voltei" onclick="registrar('Voltei')" disabled>Voltei</button>
-        <button id="btnSaida" class="btn-saida" onclick="registrar('Saí')" disabled>Saí</button>
-    </div>
+    <script type="module">
+        // Importações ATUALIZADAS do Firebase (versão 12.12.1 do seu painel)
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/12.12.1/firebase-app.js";
+        import { getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.12.1/firebase-auth.js";
 
-    <textarea id="registro" placeholder="Seu registro aparecerá aqui..."></textarea>
-    
-    <div class="controls">
-        <button onclick="copiarTexto()">Copiar</button>
-        <button onclick="baixarTXT()">Salvar</button>
-        <button class="btn-desfazer" onclick="desfazer()" title="Atalho: Ctrl+Z">Desfazer</button>
-        <button class="btn-limpar" onclick="limparTexto()">Limpar</button>
-    </div>
+        // As chaves exatas do seu print
+        const firebaseConfig = {
+            apiKey: "AIzaSyCtSKmXr7tJNBiTC54kbUmZX4MUP4bIWn8",
+            authDomain: "calculadora-de-horas-rieps.firebaseapp.com",
+            projectId: "calculadora-de-horas-rieps",
+            storageBucket: "calculadora-de-horas-rieps.firebasestorage.app",
+            messagingSenderId: "607480910329",
+            appId: "1:607480910329:web:ca6044eba8ed8710cfad28",
+            measurementId: "G-VQD21X5BP3"
+        };
 
-    <script>
+        // Inicia o Firebase e a Autenticação
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+
+        // ==========================================
+        // SISTEMA DE LOGIN E TELAS
+        // ==========================================
+        onAuthStateChanged(auth, (user) => {
+            if (user) {
+                // Usuário está logado
+                document.getElementById('tela-login').style.display = 'none';
+                document.getElementById('tela-calculadora').style.display = 'block';
+                
+                setarHoraAtual();
+                carregarMemoria();
+            } else {
+                // Ninguém logado
+                document.getElementById('tela-login').style.display = 'block';
+                document.getElementById('tela-calculadora').style.display = 'none';
+            }
+        });
+
+        window.fazerLogin = function() {
+            const email = document.getElementById('emailLogin').value;
+            const senha = document.getElementById('senhaLogin').value;
+            const msgErro = document.getElementById('msg-erro');
+            
+            msgErro.style.display = 'none';
+
+            if(!email || !senha) {
+                msgErro.innerText = "Preencha e-mail e senha!";
+                msgErro.style.display = 'block';
+                return;
+            }
+
+            signInWithEmailAndPassword(auth, email, senha)
+                .catch((error) => {
+                    msgErro.innerText = "Falha no acesso. Verifique seu e-mail e senha.";
+                    msgErro.style.display = 'block';
+                    console.error(error.message);
+                });
+        }
+
+        window.fazerLogout = function() {
+            signOut(auth);
+        }
+
+        // Permitir logar apertando ENTER
+        document.getElementById('senhaLogin').addEventListener('keypress', function (e) {
+            if (e.key === 'Enter') fazerLogin();
+        });
+
+        // ==========================================
+        // LÓGICA DA CALCULADORA
+        // ==========================================
         let estadoAtual = 'fora'; 
         let minutosAcumulados = 0;
         let ultimaMarcacaoTempo = null; 
         let historicoDeAcoes = []; 
 
-        setarHoraAtual();
-        carregarMemoria(); 
-
         document.addEventListener('keydown', function(event) {
             if (event.ctrlKey && event.key === 'z') {
                 if (document.activeElement !== document.getElementById('registro')) {
                     event.preventDefault(); 
-                    desfazer();
+                    window.desfazer();
                 }
             }
         });
@@ -99,19 +185,16 @@
             if(historicoDeAcoes.length > 15) historicoDeAcoes.shift(); 
         }
 
-        function desfazer() {
+        window.desfazer = function() {
             if (historicoDeAcoes.length === 0) {
                 alert("Nada para desfazer!");
                 return;
             }
-            
             const estadoAnterior = historicoDeAcoes.pop();
-            
             estadoAtual = estadoAnterior.estadoAtual;
             minutosAcumulados = estadoAnterior.minutosAcumulados;
             ultimaMarcacaoTempo = estadoAnterior.ultimaMarcacaoTempo;
             document.getElementById('registro').value = estadoAnterior.texto;
-            
             atualizarBotoes();
             salvarMemoria();
         }
@@ -128,22 +211,18 @@
             if (localStorage.getItem('ponto_estado')) {
                 estadoAtual = localStorage.getItem('ponto_estado');
                 minutosAcumulados = parseInt(localStorage.getItem('ponto_minutos')) || 0;
-                
                 let horaSalva = localStorage.getItem('ponto_ultimaHora');
                 ultimaMarcacaoTempo = horaSalva === '' ? null : horaSalva;
-                
                 document.getElementById('registro').value = localStorage.getItem('ponto_texto') || '';
-                
                 let historicoSalvo = localStorage.getItem('ponto_historico');
                 if (historicoSalvo) historicoDeAcoes = JSON.parse(historicoSalvo);
-                
                 atualizarBotoes();
                 const textarea = document.getElementById('registro');
                 textarea.scrollTop = textarea.scrollHeight;
             }
         }
 
-        function setarHoraAtual() {
+        window.setarHoraAtual = function() {
             const agora = new Date();
             const horas = agora.getHours().toString().padStart(2, '0');
             const minutos = agora.getMinutes().toString().padStart(2, '0');
@@ -182,14 +261,10 @@
             document.getElementById('btnSaida').disabled = estadoAtual === 'fora' || estadoAtual === 'pausado';
         }
 
-        function registrar(acao) {
+        window.registrar = function(acao) {
             const horaMarcada = document.getElementById('horaAcao').value;
             const textarea = document.getElementById('registro');
-            
-            if (!horaMarcada) {
-                alert("Por favor, defina um horário válido.");
-                return;
-            }
+            if (!horaMarcada) { alert("Por favor, defina um horário válido."); return; }
 
             tirarFotoDoEstado();
 
@@ -199,26 +274,17 @@
                 const diasSemana = ['Domingo', 'Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado'];
                 const nomeDia = diasSemana[dataObj.getDay()];
                 const dataStr = dataObj.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
-                
                 if (textarea.value !== "") textarea.value += `\n`; 
-                
                 textarea.value += `${nomeDia} (${dataStr}):\n`;
                 textarea.value += `Entrei: ${horaMarcada}\n`;
-                
                 ultimaMarcacaoTempo = horaMarcada;
                 minutosAcumulados = 0;
                 estadoAtual = 'trabalhando';
             } 
             else if (acao === 'Pausa') {
                 let motivo = prompt("Motivo da pausa? (Deixe em branco se não quiser especificar)", "Almoço");
-                
-                if (motivo === null) {
-                    historicoDeAcoes.pop(); 
-                    return;
-                }
-                
+                if (motivo === null) { historicoDeAcoes.pop(); return; }
                 let textoPausa = (motivo && motivo.trim() !== "") ? `Pausa (${motivo}):` : `Pausa:`;
-                
                 textarea.value += `${textoPausa} ${horaMarcada}\n`;
                 minutosAcumulados += calcularDiferencaEmMinutos(ultimaMarcacaoTempo, horaMarcada);
                 estadoAtual = 'pausado';
@@ -230,29 +296,26 @@
             } 
             else if (acao === 'Saí') {
                 textarea.value += `Saí: ${horaMarcada}\n`;
-                
                 if (estadoAtual === 'trabalhando') {
                     minutosAcumulados += calcularDiferencaEmMinutos(ultimaMarcacaoTempo, horaMarcada);
                 }
-                
                 textarea.value += `Tempo: ${formatarMinutosParaHoras(minutosAcumulados)}h\n\n`;
                 estadoAtual = 'fora';
             }
 
             atualizarBotoes();
             textarea.scrollTop = textarea.scrollHeight;
-            setarHoraAtual(); 
-            
+            window.setarHoraAtual(); 
             salvarMemoria(); 
         }
 
-        function copiarTexto() {
+        window.copiarTexto = function() {
             const textarea = document.getElementById('registro');
             textarea.select();
             document.execCommand('copy');
         }
 
-        function baixarTXT() {
+        window.baixarTXT = function() {
             const texto = document.getElementById('registro').value;
             if(!texto) return;
             const blob = new Blob([texto], { type: "text/plain" });
@@ -262,16 +325,14 @@
             link.click();
         }
 
-        function limparTexto() {
+        window.limparTexto = function() {
             if(confirm("Tem certeza que deseja apagar todo o registro?")) {
                 tirarFotoDoEstado(); 
-                
                 document.getElementById('registro').value = '';
                 estadoAtual = 'fora';
                 minutosAcumulados = 0;
                 ultimaMarcacaoTempo = null;
                 atualizarBotoes();
-                
                 salvarMemoria(); 
             }
         }
