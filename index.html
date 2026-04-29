@@ -1,103 +1,12 @@
-<!DOCTYPE html>
-<html lang="pt-BR">
-<head>
-    <meta charset="UTF-8">
-    <title>Calculadora de Ponto</title>
-    
-    <link rel="icon" type="image/png" href="rieps.png">
-    
-    <style>
-        body { font-family: sans-serif; max-width: 360px; margin: 40px auto; padding: 20px; background: #202124; color: #e8eaed; border-radius: 8px; }
-        h2 { margin-top: 0; border-bottom: 1px solid #5f6368; padding-bottom: 10px; }
-        
-        /* ESTILOS DA CALCULADORA */
-        .relogio-container { background: #303134; padding: 15px; border-radius: 8px; margin-bottom: 20px; border: 1px solid #5f6368;}
-        .campo-hora { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px;}
-        .campo-hora label { font-weight: bold; font-size: 14px;}
-        input[type="time"], input[type="date"] { background: #171717; color: white; border: 1px solid #5f6368; padding: 8px; border-radius: 4px; font-size: 16px; width: 130px; font-family: monospace;}
-        input[type="time"]::-webkit-calendar-picker-indicator, input[type="date"]::-webkit-calendar-picker-indicator { filter: invert(1); cursor: pointer; }
-        
-        .btn-agora { background: #4285f4; color: white; border: none; padding: 8px 12px; border-radius: 4px; cursor: pointer; font-size: 12px; font-weight: bold;}
-        .btn-agora:hover { background: #5c97f5; }
-
-        .botoes-acao { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 15px; }
-        .botoes-acao button { padding: 12px; color: #202124; border: none; cursor: pointer; font-size: 15px; border-radius: 5px; font-weight: bold; transition: 0.2s; }
-        .btn-entrada { background: #81c995; } .btn-entrada:hover { background: #5bb974; }
-        .btn-pausa { background: #fde293; } .btn-pausa:hover { background: #f6c844; }
-        .btn-voltei { background: #8ab4f8; } .btn-voltei:hover { background: #5c97f5; }
-        .btn-saida { background: #f28b82; } .btn-saida:hover { background: #e06c61; }
-        
-        button:disabled { opacity: 0.4; cursor: not-allowed; }
-
-        textarea { width: 100%; height: 260px; background: #171717; color: #e8eaed; border: 1px solid #5f6368; padding: 10px; box-sizing: border-box; font-family: monospace; font-size: 15px; border-radius: 5px; resize: vertical;}
-        
-        .controls { display: flex; gap: 8px; margin-top: 10px; flex-wrap: wrap;}
-        .controls button { flex: 1; min-width: 75px; padding: 10px; font-size: 13px; background: #5f6368; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold;}
-        .controls button:hover { background: #757a80; }
-        .btn-desfazer { background: #f6c844 !important; color: #202124 !important; }
-        .btn-desfazer:hover { background: #e5b633 !important; }
-        .btn-limpar { background: #d93025 !important; }
-        .btn-limpar:hover { background: #ea4335 !important; }
-
-        /* ESTILOS DO LOGIN */
-        .input-login { width: 100%; margin-bottom: 15px; background: #171717; color: white; border: 1px solid #5f6368; padding: 12px; border-radius: 4px; box-sizing: border-box; font-size: 15px;}
-        .btn-login { width: 100%; background: #4285f4; color: white; border: none; padding: 12px; border-radius: 4px; cursor: pointer; font-size: 16px; font-weight: bold; transition: 0.2s;}
-        .btn-login:hover { background: #5c97f5; }
-    </style>
-</head>
-<body>
-
-    <div id="tela-login" style="display: none; padding: 20px; background: #303134; border-radius: 8px; border: 1px solid #5f6368; text-align: center; margin-top: 50px;">
-        <h2 style="margin-top: 0; border: none;">Acesso ao Sistema</h2>
-        <input type="email" id="emailLogin" class="input-login" placeholder="E-mail do Estúdio">
-        <input type="password" id="senhaLogin" class="input-login" placeholder="Senha">
-        
-        <button id="btn-entrar" class="btn-login" onclick="fazerLogin()">Entrar</button>
-        <p id="msg-erro" style="color: #f28b82; font-size: 14px; display: none; margin-top: 15px; font-weight: bold;"></p>
-    </div>
-
-    <div id="tela-calculadora" style="display: none;">
-        <h2>Controle de Ponto 
-            <button onclick="fazerLogout()" style="float: right; background: transparent; color: #f28b82; border: none; cursor: pointer; font-size: 14px; text-decoration: underline; padding-top: 5px;">Sair</button>
-        </h2>
-        
-        <div class="relogio-container">
-            <div class="campo-hora" style="margin-bottom: 15px;">
-                <label>Data:</label>
-                <input type="date" id="dataAtual">
-            </div>
-            <div class="campo-hora">
-                <label>Horário do Registro:</label>
-                <input type="time" id="horaAcao">
-            </div>
-            <button class="btn-agora" onclick="setarHoraAtual()" style="width: 100%;">Atualizar para Agora</button>
-        </div>
-
-        <div class="botoes-acao">
-            <button id="btnEntrei" class="btn-entrada" onclick="registrar('Entrei')">Entrei</button>
-            <button id="btnPausa" class="btn-pausa" onclick="registrar('Pausa')" disabled>Pausa</button>
-            <button id="btnVoltei" class="btn-voltei" onclick="registrar('Voltei')" disabled>Voltei</button>
-            <button id="btnSaida" class="btn-saida" onclick="registrar('Saí')" disabled>Saí</button>
-        </div>
-
-        <textarea id="registro" placeholder="Seu registro aparecerá aqui..."></textarea>
-        
-        <div class="controls">
-            <button onclick="copiarTexto()">Copiar</button>
-            <button onclick="baixarTXT()">Salvar</button>
-            <button class="btn-desfazer" onclick="desfazer()" title="Atalho: Ctrl+Z">Desfazer</button>
-            <button class="btn-limpar" onclick="limparTexto()">Limpar</button>
-        </div>
-    </div>
-
-    <script type="module">
-        // Importações ATUALIZADAS do Firebase (versão 12.12.1 do seu painel)
+<script type="module">
+        // Importações ATUALIZADAS com o Banco de Dados (Firestore)
         import { initializeApp } from "https://www.gstatic.com/firebasejs/12.12.1/firebase-app.js";
         import { getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.12.1/firebase-auth.js";
+        import { getFirestore, collection, addDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/12.12.1/firebase-firestore.js";
 
-        // As chaves exatas do seu print
+        // Cole A SUA CHAVE NOVA aqui dentro (a que você gerou no passo anterior)
         const firebaseConfig = {
-            apiKey: "AIzaSyCXTYo9OYyF8QyeETlvoTfB78VLuyohULU",
+            apiKey: "AIzaSyCXTYo9OYyF8QyeETlvoTfB78VLuyohULU", 
             authDomain: "calculadora-de-horas-rieps.firebaseapp.com",
             projectId: "calculadora-de-horas-rieps",
             storageBucket: "calculadora-de-horas-rieps.firebasestorage.app",
@@ -106,23 +15,21 @@
             measurementId: "G-VQD21X5BP3"
         };
 
-        // Inicia o Firebase e a Autenticação
+        // Inicia o Firebase, Autenticação e Banco de Dados
         const app = initializeApp(firebaseConfig);
         const auth = getAuth(app);
+        const db = getFirestore(app);
 
         // ==========================================
         // SISTEMA DE LOGIN E TELAS
         // ==========================================
         onAuthStateChanged(auth, (user) => {
             if (user) {
-                // Usuário está logado
                 document.getElementById('tela-login').style.display = 'none';
                 document.getElementById('tela-calculadora').style.display = 'block';
-                
                 setarHoraAtual();
                 carregarMemoria();
             } else {
-                // Ninguém logado
                 document.getElementById('tela-login').style.display = 'block';
                 document.getElementById('tela-calculadora').style.display = 'none';
             }
@@ -132,7 +39,6 @@
             const email = document.getElementById('emailLogin').value;
             const senha = document.getElementById('senhaLogin').value;
             const msgErro = document.getElementById('msg-erro');
-            
             msgErro.style.display = 'none';
 
             if(!email || !senha) {
@@ -153,13 +59,37 @@
             signOut(auth);
         }
 
-        // Permitir logar apertando ENTER
         document.getElementById('senhaLogin').addEventListener('keypress', function (e) {
             if (e.key === 'Enter') fazerLogin();
         });
 
         // ==========================================
-        // LÓGICA DA CALCULADORA
+        // FUNÇÃO DE SALVAR NO BANCO DE DADOS
+        // ==========================================
+        async function enviarParaNuvem(textoCompleto, totalMinutos) {
+            const usuario = auth.currentUser;
+            if (!usuario) return;
+
+            try {
+                // Cria uma "pasta" chamada pontos_estudio e joga o documento lá dentro
+                await addDoc(collection(db, "pontos_estudio"), {
+                    uid_funcionario: usuario.uid,
+                    email_funcionario: usuario.email,
+                    data_referencia: document.getElementById('dataAtual').value,
+                    minutos_trabalhados: totalMinutos,
+                    horas_formatadas: formatarMinutosParaHoras(totalMinutos),
+                    log_de_ponto: textoCompleto,
+                    data_envio: serverTimestamp()
+                });
+                alert("Dia finalizado! Ponto enviado para o sistema do estúdio com sucesso.");
+            } catch (erro) {
+                console.error("Erro ao enviar pro banco:", erro);
+                alert("Erro ao enviar o ponto para a nuvem. Tire um print ou salve o TXT por segurança!");
+            }
+        }
+
+        // ==========================================
+        // LÓGICA DA CALCULADORA (COM MÁQUINA DO TEMPO)
         // ==========================================
         let estadoAtual = 'fora'; 
         let minutosAcumulados = 0;
@@ -300,6 +230,10 @@
                     minutosAcumulados += calcularDiferencaEmMinutos(ultimaMarcacaoTempo, horaMarcada);
                 }
                 textarea.value += `Tempo: ${formatarMinutosParaHoras(minutosAcumulados)}h\n\n`;
+                
+                // --- DISPARO PARA A NUVEM ACONTECE AQUI ---
+                enviarParaNuvem(textarea.value, minutosAcumulados);
+
                 estadoAtual = 'fora';
             }
 
@@ -337,5 +271,3 @@
             }
         }
     </script>
-</body>
-</html>
