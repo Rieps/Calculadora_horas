@@ -58,8 +58,7 @@
     <div id="tela-calculadora" style="display: none;">
         <h2>Controle de Ponto
             <div style="float: right;">
-                <span id="nome-usuario" style="font-size: 14px; color: #8ab4f8; font-weight: normal;"></span>
-                <button onclick="mudarNome()" style="background: transparent; border: none; cursor: pointer; font-size: 12px; margin-right: 15px;" title="Mudar Apelido">✏️</button>
+                <span id="nome-usuario" style="font-size: 14px; color: #8ab4f8; font-weight: normal; margin-right: 15px;"></span>
                 <button onclick="fazerLogout()" style="background: transparent; color: #f28b82; border: none; cursor: pointer; font-size: 14px; text-decoration: underline;">Sair</button>
             </div>
         </h2>
@@ -113,39 +112,50 @@
         const auth = getAuth(app);
         const db = getFirestore(app);
 
-       // --- SISTEMA DE LOGIN E USERNAME ---
+       // --- SISTEMA DE LOGIN E USERNAME BLINDADO ---
         onAuthStateChanged(auth, (user) => {
             if (user) {
-                // Inteligência nova: Se tiver um displayName salvo, usa ele. Se não tiver, corta o e-mail.
-                const nomeExibicao = user.displayName || user.email.split('@')[0];
-                
-                document.getElementById('nome-usuario').innerText = `Olá, ${nomeExibicao}`;
-                document.getElementById('tela-login').style.display = 'none';
-                document.getElementById('tela-calculadora').style.display = 'block';
-                window.setarHoraAtual();
-                window.carregarMemoria();
+                if (!user.displayName) {
+                    let novoNome = "";
+                    
+                    while (!novoNome || novoNome.trim() === "") {
+                        novoNome = prompt("⚠️ PRIMEIRO ACESSO ⚠️\n\nDigite o seu PRIMEIRO NOME para o sistema gerar a sua planilha.\n\nRegra: Mantenha simples. Sem sobrenomes ou espaços (Ex: Gabriel, Joao, Maria).");
+                        
+                        if (novoNome === null) {
+                            signOut(auth);
+                            return; 
+                        }
+                    }
+
+                    // A MÁGICA DA LIMPEZA: Pega só a primeira palavra e padroniza (Ex: " gAbRiEl " -> "Gabriel")
+                    let nomeLimpo = novoNome.trim().split(' ')[0];
+                    nomeLimpo = nomeLimpo.charAt(0).toUpperCase() + nomeLimpo.slice(1).toLowerCase();
+                    
+                    updateProfile(user, { displayName: nomeLimpo })
+                    .then(() => {
+                        iniciarInterface(nomeLimpo);
+                    })
+                    .catch((erro) => {
+                        console.error("Erro ao fixar nome:", erro);
+                        alert("Erro ao registrar seu nome. Tente novamente.");
+                        signOut(auth);
+                    });
+                } else {
+                    iniciarInterface(user.displayName);
+                }
             } else {
                 document.getElementById('tela-login').style.display = 'block';
                 document.getElementById('tela-calculadora').style.display = 'none';
             }
         });
 
-        // --- FUNÇÃO PARA MUDAR O NICKNAME ---
-        window.mudarNome = function() {
-            const usuario = auth.currentUser;
-            if (!usuario) return;
-            
-            // Abre uma janelinha para a pessoa digitar o nome
-            const novoNome = prompt("Digite o nome ou apelido que deseja usar:", usuario.displayName || "");
-            
-            // Se ela digitou algo e deu OK, salva na nuvem permanentemente
-            if (novoNome && novoNome.trim() !== "") {
-                updateProfile(usuario, { displayName: novoNome.trim() })
-                .then(() => {
-                    document.getElementById('nome-usuario').innerText = `Olá, ${novoNome.trim()}`;
-                })
-                .catch((erro) => console.error("Erro ao mudar nome:", erro));
-            }
+        // Função auxiliar para iniciar a tela após confirmar o nome
+        function iniciarInterface(nome) {
+            document.getElementById('nome-usuario').innerText = `Olá, ${nome}`;
+            document.getElementById('tela-login').style.display = 'none';
+            document.getElementById('tela-calculadora').style.display = 'block';
+            window.setarHoraAtual();
+            window.carregarMemoria();
         }
 
         window.fazerLogin = function() {
@@ -161,25 +171,45 @@
 
         window.fazerLogout = function() { signOut(auth); }
 
-        // --- ENVIAR PARA O FIRESTORE ---
+        // --- ENVIAR PARA O FIRESTORE E PLANILHA JANGADA ---
         async function enviarParaNuvem(textoCompleto, totalMinutos) {
             const usuario = auth.currentUser;
             if (!usuario) return;
+
+            // O Nickname agora é garantido e inalterável
+            const nomeIntegrante = usuario.displayName;
+
+            const dadosPonto = {
+                nome: nomeIntegrante,
+                data: document.getElementById('dataAtual').value,
+                entrada: hEntrada,
+                inicioPausa: hInicioPausa,
+                fimPausa: hFimPausa,
+                saida: hSaida,
+                totalHoras: formatarMinutosParaHoras(totalMinutos),
+                log: textoCompleto
+            };
+
             try {
-                await addDoc(collection(db, "pontos_estudio"), {
-                    uid: usuario.uid,
-                    email: usuario.email,
-                    data: document.getElementById('dataAtual').value,
-                    minutos: totalMinutos,
-                    horas: formatarMinutosParaHoras(totalMinutos),
-                    log: textoCompleto,
-                    timestamp: serverTimestamp()
-                });
-                alert("Ponto enviado com sucesso para o banco de dados!");
-            } catch (e) { console.error("Erro Firestore: ", e); }
+                // 1. Salva no banco de dados Firebase
+                await addDoc(collection(db, "pontos_estudio"), { ...dadosPonto, timestamp: serverTimestamp() });
+                
+                // 2. Envia para a Planilha JANGADA
+                // ATENÇÃO: COLE AQUI O URL NOVO GERADO PELO APPS SCRIPT
+                const urlPlanilha = "COLE_AQUI_A_NOVA_URL_DO_APPS_SCRIPT"; 
+                fetch(urlPlanilha, { method: 'POST', mode: 'no-cors', body: JSON.stringify(dadosPonto) });
+
+                alert(`Ponto registrado com sucesso na aba "${nomeIntegrante}" da planilha Jangada!`);
+            } catch (e) { console.error("Erro ao enviar dados: ", e); }
         }
 
         // --- LÓGICA DA CALCULADORA ---
+        
+        let hEntrada = "";
+        let hInicioPausa = "";
+        let hFimPausa = "";
+        let hSaida = "";
+
         let estadoAtual = 'fora'; 
         let minutosAcumulados = 0;
         let ultimaMarcacaoTempo = null; 
@@ -194,7 +224,8 @@
         function tirarFotoDoEstado() {
             historicoDeAcoes.push({
                 estadoAtual, minutosAcumulados, ultimaMarcacaoTempo,
-                texto: document.getElementById('registro').value
+                texto: document.getElementById('registro').value,
+                hEntrada, hInicioPausa, hFimPausa, hSaida // Salva os tempos também
             });
             if(historicoDeAcoes.length > 15) historicoDeAcoes.shift(); 
         }
@@ -206,6 +237,10 @@
             minutosAcumulados = ant.minutosAcumulados;
             ultimaMarcacaoTempo = ant.ultimaMarcacaoTempo;
             document.getElementById('registro').value = ant.texto;
+            hEntrada = ant.hEntrada;
+            hInicioPausa = ant.hInicioPausa;
+            hFimPausa = ant.hFimPausa;
+            hSaida = ant.hSaida;
             atualizarBotoes();
             salvarMemoria();
         }
@@ -216,29 +251,38 @@
             tirarFotoDoEstado();
 
             if (acao === 'Entrei') {
+                hEntrada = hora;
+                hInicioPausa = ""; hFimPausa = ""; hSaida = ""; // Reseta pausas do dia anterior
+                
                 const dataInput = document.getElementById('dataAtual').value;
                 let dataObj = new Date(dataInput + 'T12:00:00');
                 const dias = ['Domingo','Segunda','Terça','Quarta','Quinta','Sexta','Sábado'];
                 const dataStr = dataObj.toLocaleDateString('pt-BR', {day:'2-digit', month:'2-digit'});
                 if (textarea.value !== "") textarea.value += `\n`;
                 textarea.value += `${dias[dataObj.getDay()]} (${dataStr}):\nEntrei: ${hora}\n`;
+                
                 ultimaMarcacaoTempo = hora; minutosAcumulados = 0; estadoAtual = 'trabalhando';
             } 
             else if (acao === 'Pausa') {
-                let m = prompt("Motivo?", "Almoço");
+                let m = prompt("Motivo da pausa?", "Almoço");
                 if (m === null) { historicoDeAcoes.pop(); return; }
+                hInicioPausa = hora; // Salva para a coluna D da planilha
+                
                 textarea.value += `Pausa (${m}): ${hora}\n`;
                 minutosAcumulados += calcularDiferencaEmMinutos(ultimaMarcacaoTempo, hora);
                 estadoAtual = 'pausado';
             } 
             else if (acao === 'Voltei') {
+                hFimPausa = hora; // Salva para a coluna E da planilha
                 textarea.value += `Voltei: ${hora}\n`;
                 ultimaMarcacaoTempo = hora; estadoAtual = 'trabalhando';
             } 
             else if (acao === 'Saí') {
+                hSaida = hora; // Salva para a coluna F da planilha
                 textarea.value += `Saí: ${hora}\n`;
                 if (estadoAtual === 'trabalhando') minutosAcumulados += calcularDiferencaEmMinutos(ultimaMarcacaoTempo, hora);
                 textarea.value += `Tempo: ${formatarMinutosParaHoras(minutosAcumulados)}h\n\n`;
+                
                 enviarParaNuvem(textarea.value, minutosAcumulados);
                 estadoAtual = 'fora';
             }
