@@ -32,6 +32,11 @@
         .btn-voltei { background: #8ab4f8; } .btn-voltei:hover { background: #5c97f5; }
         .btn-saida { background: #f28b82; } .btn-saida:hover { background: #e06c61; }
         
+        /* NOVO BOTÃO DE ENVIO */
+        .btn-enviar { width: 100%; background: #9c27b0; color: white; border: none; padding: 14px; border-radius: 5px; cursor: pointer; font-size: 16px; font-weight: bold; margin-bottom: 15px; transition: 0.2s; text-transform: uppercase; letter-spacing: 1px;}
+        .btn-enviar:hover { background: #ba68c8; }
+        .btn-enviar:disabled { background: #5f6368; opacity: 0.5; cursor: not-allowed; color: #aaa;}
+
         button:disabled { opacity: 0.4; cursor: not-allowed; }
 
         textarea { width: 100%; height: 260px; background: #171717; color: #e8eaed; border: 1px solid #5f6368; padding: 10px; box-sizing: border-box; font-family: monospace; font-size: 15px; border-radius: 5px; resize: vertical;}
@@ -82,6 +87,8 @@
             <button id="btnSaida" class="btn-saida" onclick="registrar('Saí')" disabled>Saí</button>
         </div>
 
+        <button id="btnEnviar" class="btn-enviar" onclick="acionarEnvio()" disabled>📤 Enviar para a Planilha</button>
+
         <textarea id="registro" placeholder="Seu registro aparecerá aqui..."></textarea>
         
         <div class="controls">
@@ -98,7 +105,6 @@
         import { getFirestore, collection, addDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/12.12.1/firebase-firestore.js";
 
         //API CONFIG
-        // Para o proximo maluco que ver esse codigo - Aqui troca o API KEY (só se precisar)
         const firebaseConfig = {
             apiKey: "AIzaSyCXTYo9OYyF8QyeETlvoTfB78VLuyohULU", 
             authDomain: "calculadora-de-horas-rieps.firebaseapp.com",
@@ -113,7 +119,7 @@
         const auth = getAuth(app);
         const db = getFirestore(app);
 
-       // --- SISTEMA DE LOGIN E USERNAME BLINDADO ---
+       // --- SISTEMA DE LOGIN E USERNAME ---
         onAuthStateChanged(auth, (user) => {
             if (user) {
                 if (!user.displayName) {
@@ -128,7 +134,6 @@
                         }
                     }
 
-                    //Padronização: (Ex: " jOHN " -> "John")
                     let nomeLimpo = novoNome.trim().split(' ')[0];
                     nomeLimpo = nomeLimpo.charAt(0).toUpperCase() + nomeLimpo.slice(1).toLowerCase();
                     
@@ -150,7 +155,6 @@
             }
         });
 
-        // Função auxiliar para iniciar a tela após confirmar o nome
         function iniciarInterface(nome) {
             document.getElementById('nome-usuario').innerText = `Olá, ${nome}`;
             document.getElementById('tela-login').style.display = 'none';
@@ -170,6 +174,13 @@
             });
         }
 
+        // Permite logar apertando o 'Enter' na senha
+        document.getElementById('senhaLogin').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                window.fazerLogin();
+            }
+        });
+
         window.fazerLogout = function() { signOut(auth); }
 
         // --- ENVIAR PARA O FIRESTORE E PLANILHA JANGADA ---
@@ -177,7 +188,6 @@
             const usuario = auth.currentUser;
             if (!usuario) return;
 
-            // O Nickname agora é garantido
             const nomeIntegrante = usuario.displayName;
 
             const dadosPonto = {
@@ -197,15 +207,29 @@
                 
                 // 2. Envia para a Planilha JANGADA
                 // Para o proximo maluco que ver esse codigo - Aqui troca o link do script para a planilha
-                const urlPlanilha = "https://script.google.com/macros/s/AKfycbxfp7vKgzkgZdb-QYa_ULPuILMNyboACWNPuwXjCDsG_5Hb27cWrEj41dW1eJIDXCRnjQ/exec"; 
+
+                const urlPlanilha = "https://script.google.com/macros/s/AKfycbyuz4KIgq3qBQZ5LaYHffT7jMO1nBXfJFhmjLMb8P9CfiQ7aIZBrt8kkSgS-X-sgRUfvg/exec"; 
                 fetch(urlPlanilha, { method: 'POST', mode: 'no-cors', body: JSON.stringify(dadosPonto) });
 
                 alert(`Ponto registrado com sucesso na aba "${nomeIntegrante}" da planilha Jangada!`);
+                
+                // Limpa a tela e zera o dia para o próximo registro
+                document.getElementById('registro').value = ''; 
+                minutosAcumulados = 0; 
+                hEntrada = ""; hInicioPausa = ""; hFimPausa = ""; hSaida = "";
+                estadoAtual = 'fora';
+                atualizarBotoes();
+                window.salvarMemoria();
+
             } catch (e) { console.error("Erro ao enviar dados: ", e); }
         }
 
+        window.acionarEnvio = function() {
+            const textarea = document.getElementById('registro');
+            enviarParaNuvem(textarea.value, minutosAcumulados);
+        }
+
         // --- LÓGICA DA CALCULADORA ---
-        
         let hEntrada = "";
         let hInicioPausa = "";
         let hFimPausa = "";
@@ -226,7 +250,7 @@
             historicoDeAcoes.push({
                 estadoAtual, minutosAcumulados, ultimaMarcacaoTempo,
                 texto: document.getElementById('registro').value,
-                hEntrada, hInicioPausa, hFimPausa, hSaida // Salva os tempos também
+                hEntrada, hInicioPausa, hFimPausa, hSaida 
             });
             if(historicoDeAcoes.length > 15) historicoDeAcoes.shift(); 
         }
@@ -253,7 +277,7 @@
 
             if (acao === 'Entrei') {
                 hEntrada = hora;
-                hInicioPausa = ""; hFimPausa = ""; hSaida = ""; // Reseta pausas do dia anterior
+                hInicioPausa = ""; hFimPausa = ""; hSaida = ""; 
                 
                 const dataInput = document.getElementById('dataAtual').value;
                 let dataObj = new Date(dataInput + 'T12:00:00');
@@ -267,25 +291,24 @@
             else if (acao === 'Pausa') {
                 let m = prompt("Motivo da pausa?", "Almoço");
                 if (m === null) { historicoDeAcoes.pop(); return; }
-                hInicioPausa = hora; // Salva para a coluna D da planilha
+                hInicioPausa = hora; 
                 
                 textarea.value += `Pausa (${m}): ${hora}\n`;
                 minutosAcumulados += calcularDiferencaEmMinutos(ultimaMarcacaoTempo, hora);
                 estadoAtual = 'pausado';
             } 
             else if (acao === 'Voltei') {
-                hFimPausa = hora; // Salva para a coluna E da planilha
+                hFimPausa = hora; 
                 textarea.value += `Voltei: ${hora}\n`;
                 ultimaMarcacaoTempo = hora; estadoAtual = 'trabalhando';
             } 
             else if (acao === 'Saí') {
-                hSaida = hora; // Salva para a coluna F da planilha
+                hSaida = hora; 
                 textarea.value += `Saí: ${hora}\n`;
                 if (estadoAtual === 'trabalhando') minutosAcumulados += calcularDiferencaEmMinutos(ultimaMarcacaoTempo, hora);
                 textarea.value += `Tempo: ${formatarMinutosParaHoras(minutosAcumulados)}h\n\n`;
                 
-                enviarParaNuvem(textarea.value, minutosAcumulados);
-                estadoAtual = 'fora';
+                estadoAtual = 'aguardando_envio';
             }
             atualizarBotoes(); textarea.scrollTop = textarea.scrollHeight; window.setarHoraAtual(); salvarMemoria();
         }
@@ -299,12 +322,17 @@
         function converterParaMinutos(h) { let [hr, mi] = h.split(':').map(Number); return (hr * 60) + mi; }
         function calcularDiferencaEmMinutos(i, f) { let ini = converterParaMinutos(i), fim = converterParaMinutos(f); if (fim < ini) fim += 1440; return fim - ini; }
         function formatarMinutosParaHoras(t) { return `${Math.floor(t/60).toString().padStart(2,'0')}:${(t%60).toString().padStart(2,'0')}`; }
+        
         function atualizarBotoes() {
             document.getElementById('btnEntrei').disabled = estadoAtual !== 'fora';
             document.getElementById('btnPausa').disabled = estadoAtual !== 'trabalhando';
             document.getElementById('btnVoltei').disabled = estadoAtual !== 'pausado';
-            document.getElementById('btnSaida').disabled = estadoAtual === 'fora' || estadoAtual === 'pausado';
+            document.getElementById('btnSaida').disabled = estadoAtual === 'fora' || estadoAtual === 'pausado' || estadoAtual === 'aguardando_envio';
+            
+            const btnEnviar = document.getElementById('btnEnviar');
+            if(btnEnviar) btnEnviar.disabled = estadoAtual !== 'aguardando_envio';
         }
+
         window.salvarMemoria = function() {
             localStorage.setItem('p_est', estadoAtual);
             localStorage.setItem('p_min', minutosAcumulados);
@@ -325,7 +353,17 @@
             const blob = new Blob([document.getElementById('registro').value], {type: "text/plain"});
             const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = "ponto.txt"; a.click();
         }
-        window.limparTexto = function() { if(confirm("Apagar tudo?")) { tirarFotoDoEstado(); document.getElementById('registro').value = ''; estadoAtual = 'fora'; minutosAcumulados = 0; atualizarBotoes(); salvarMemoria(); } }
+        window.limparTexto = function() { 
+            if(confirm("Apagar tudo?")) { 
+                tirarFotoDoEstado(); 
+                document.getElementById('registro').value = ''; 
+                estadoAtual = 'fora'; 
+                minutosAcumulados = 0; 
+                hEntrada = ""; hInicioPausa = ""; hFimPausa = ""; hSaida = "";
+                atualizarBotoes(); 
+                salvarMemoria(); 
+            } 
+        }
     </script>
 </body>
 </html>
