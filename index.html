@@ -10,12 +10,10 @@
         body { font-family: sans-serif; max-width: 360px; margin: 40px auto; padding: 20px; background: #202124; color: #e8eaed; border-radius: 8px; }
         h2 { margin-top: 0; border-bottom: 1px solid #5f6368; padding-bottom: 10px; }
         
-        /* TELAS */
         .input-login { width: 100%; margin-bottom: 15px; background: #171717; color: white; border: 1px solid #5f6368; padding: 12px; border-radius: 4px; box-sizing: border-box; font-size: 15px;}
         .btn-login { width: 100%; background: #4285f4; color: white; border: none; padding: 12px; border-radius: 4px; cursor: pointer; font-size: 16px; font-weight: bold; transition: 0.2s;}
         .btn-login:hover { background: #5c97f5; }
 
-        /* CALCULADORA */
         .relogio-container { background: #303134; padding: 15px; border-radius: 8px; margin-bottom: 20px; border: 1px solid #5f6368;}
         .campo-hora { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px;}
         .campo-hora label { font-weight: bold; font-size: 14px;}
@@ -32,7 +30,6 @@
         .btn-voltei { background: #8ab4f8; } .btn-voltei:hover { background: #5c97f5; }
         .btn-saida { background: #f28b82; } .btn-saida:hover { background: #e06c61; }
         
-        /* NOVO BOTÃO DE ENVIO */
         .btn-enviar { width: 100%; background: #9c27b0; color: white; border: none; padding: 14px; border-radius: 5px; cursor: pointer; font-size: 16px; font-weight: bold; margin-bottom: 15px; transition: 0.2s; text-transform: uppercase; letter-spacing: 1px;}
         .btn-enviar:hover { background: #ba68c8; }
         .btn-enviar:disabled { background: #5f6368; opacity: 0.5; cursor: not-allowed; color: #aaa;}
@@ -104,7 +101,7 @@
         import { getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged, updateProfile } from "https://www.gstatic.com/firebasejs/12.12.1/firebase-auth.js";
         import { getFirestore, collection, addDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/12.12.1/firebase-firestore.js";
 
-        //API CONFIG
+        // Para o proximo maluco que ver esse codigo - Aqui troca o API KEY (só se precisar)
         const firebaseConfig = {
             apiKey: "AIzaSyCXTYo9OYyF8QyeETlvoTfB78VLuyohULU", 
             authDomain: "calculadora-de-horas-rieps.firebaseapp.com",
@@ -119,33 +116,19 @@
         const auth = getAuth(app);
         const db = getFirestore(app);
 
-       // --- SISTEMA DE LOGIN E USERNAME ---
         onAuthStateChanged(auth, (user) => {
             if (user) {
                 if (!user.displayName) {
                     let novoNome = "";
-                    
                     while (!novoNome || novoNome.trim() === "") {
-                        novoNome = prompt(" PRIMEIRO ACESSO \n\nDigite o seu PRIMEIRO NOME para o sistema gerar a sua planilha.\n\nRegra: Mantenha simples.");
-                        
-                        if (novoNome === null) {
-                            signOut(auth);
-                            return; 
-                        }
+                        novoNome = prompt(" PRIMEIRO ACESSO \n\nDigite o seu PRIMEIRO NOME para o sistema gerar a sua planilha.");
+                        if (novoNome === null) { signOut(auth); return; }
                     }
-
                     let nomeLimpo = novoNome.trim().split(' ')[0];
                     nomeLimpo = nomeLimpo.charAt(0).toUpperCase() + nomeLimpo.slice(1).toLowerCase();
-                    
                     updateProfile(user, { displayName: nomeLimpo })
-                    .then(() => {
-                        iniciarInterface(nomeLimpo);
-                    })
-                    .catch((erro) => {
-                        console.error("Erro ao fixar nome:", erro);
-                        alert("Erro ao registrar seu nome. Tente novamente.");
-                        signOut(auth);
-                    });
+                    .then(() => { iniciarInterface(nomeLimpo); })
+                    .catch((erro) => { alert("Erro. Tente novamente."); signOut(auth); });
                 } else {
                     iniciarInterface(user.displayName);
                 }
@@ -168,22 +151,18 @@
             const senha = document.getElementById('senhaLogin').value;
             const msgErro = document.getElementById('msg-erro');
             msgErro.style.display = 'none';
-            signInWithEmailAndPassword(auth, email, senha).catch((error) => {
+            signInWithEmailAndPassword(auth, email, senha).catch(() => {
                 msgErro.innerText = "Erro no login. Verifique os dados.";
                 msgErro.style.display = 'block';
             });
         }
 
-        // Permite logar apertando o 'Enter' na senha
         document.getElementById('senhaLogin').addEventListener('keypress', function(e) {
-            if (e.key === 'Enter') {
-                window.fazerLogin();
-            }
+            if (e.key === 'Enter') window.fazerLogin();
         });
 
         window.fazerLogout = function() { signOut(auth); }
 
-        // --- ENVIAR PARA O FIRESTORE E PLANILHA JANGADA ---
         async function enviarParaNuvem(textoCompleto, totalMinutos) {
             const usuario = auth.currentUser;
             if (!usuario) return;
@@ -194,29 +173,24 @@
                 nome: nomeIntegrante,
                 data: document.getElementById('dataAtual').value,
                 entrada: hEntrada,
-                inicioPausa: hInicioPausa,
-                fimPausa: hFimPausa,
+                pausas: pausas, 
                 saida: hSaida,
                 totalHoras: formatarMinutosParaHoras(totalMinutos),
                 log: textoCompleto
             };
 
             try {
-                // 1. Salva no banco de dados Firebase
                 await addDoc(collection(db, "pontos_estudio"), { ...dadosPonto, timestamp: serverTimestamp() });
-                
-                // 2. Envia para a Planilha JANGADA
+               
                 // Para o proximo maluco que ver esse codigo - Aqui troca o link do script para a planilha
-
                 const urlPlanilha = "https://script.google.com/macros/s/AKfycbyuz4KIgq3qBQZ5LaYHffT7jMO1nBXfJFhmjLMb8P9CfiQ7aIZBrt8kkSgS-X-sgRUfvg/exec"; 
                 fetch(urlPlanilha, { method: 'POST', mode: 'no-cors', body: JSON.stringify(dadosPonto) });
 
                 alert(`Ponto registrado com sucesso na aba "${nomeIntegrante}" da planilha Jangada!`);
                 
-                // Limpa a tela e zera o dia para o próximo registro
                 document.getElementById('registro').value = ''; 
                 minutosAcumulados = 0; 
-                hEntrada = ""; hInicioPausa = ""; hFimPausa = ""; hSaida = "";
+                hEntrada = ""; hSaida = ""; pausas = []; inicioPausaAtual = ""; motivoPausaAtual = "";
                 estadoAtual = 'fora';
                 atualizarBotoes();
                 window.salvarMemoria();
@@ -229,11 +203,12 @@
             enviarParaNuvem(textarea.value, minutosAcumulados);
         }
 
-        // --- LÓGICA DA CALCULADORA ---
+        // Variáveis de Controle
         let hEntrada = "";
-        let hInicioPausa = "";
-        let hFimPausa = "";
         let hSaida = "";
+        let pausas = [];
+        let inicioPausaAtual = "";
+        let motivoPausaAtual = "";
 
         let estadoAtual = 'fora'; 
         let minutosAcumulados = 0;
@@ -250,7 +225,9 @@
             historicoDeAcoes.push({
                 estadoAtual, minutosAcumulados, ultimaMarcacaoTempo,
                 texto: document.getElementById('registro').value,
-                hEntrada, hInicioPausa, hFimPausa, hSaida 
+                hEntrada, hSaida,
+                pausas: JSON.parse(JSON.stringify(pausas)),
+                inicioPausaAtual, motivoPausaAtual
             });
             if(historicoDeAcoes.length > 15) historicoDeAcoes.shift(); 
         }
@@ -263,9 +240,10 @@
             ultimaMarcacaoTempo = ant.ultimaMarcacaoTempo;
             document.getElementById('registro').value = ant.texto;
             hEntrada = ant.hEntrada;
-            hInicioPausa = ant.hInicioPausa;
-            hFimPausa = ant.hFimPausa;
             hSaida = ant.hSaida;
+            pausas = ant.pausas;
+            inicioPausaAtual = ant.inicioPausaAtual;
+            motivoPausaAtual = ant.motivoPausaAtual;
             atualizarBotoes();
             salvarMemoria();
         }
@@ -277,7 +255,7 @@
 
             if (acao === 'Entrei') {
                 hEntrada = hora;
-                hInicioPausa = ""; hFimPausa = ""; hSaida = ""; 
+                hSaida = ""; pausas = []; inicioPausaAtual = ""; motivoPausaAtual = ""; 
                 
                 const dataInput = document.getElementById('dataAtual').value;
                 let dataObj = new Date(dataInput + 'T12:00:00');
@@ -291,14 +269,15 @@
             else if (acao === 'Pausa') {
                 let m = prompt("Motivo da pausa?", "Almoço");
                 if (m === null) { historicoDeAcoes.pop(); return; }
-                hInicioPausa = hora; 
+                inicioPausaAtual = hora; 
+                motivoPausaAtual = m;
                 
                 textarea.value += `Pausa (${m}): ${hora}\n`;
                 minutosAcumulados += calcularDiferencaEmMinutos(ultimaMarcacaoTempo, hora);
                 estadoAtual = 'pausado';
             } 
             else if (acao === 'Voltei') {
-                hFimPausa = hora; 
+                pausas.push({ inicio: inicioPausaAtual, fim: hora, motivo: motivoPausaAtual });
                 textarea.value += `Voltei: ${hora}\n`;
                 ultimaMarcacaoTempo = hora; estadoAtual = 'trabalhando';
             } 
@@ -313,12 +292,12 @@
             atualizarBotoes(); textarea.scrollTop = textarea.scrollHeight; window.setarHoraAtual(); salvarMemoria();
         }
 
-        // Funções Auxiliares
         window.setarHoraAtual = function() {
             const a = new Date();
             document.getElementById('horaAcao').value = `${a.getHours().toString().padStart(2,'0')}:${a.getMinutes().toString().padStart(2,'0')}`;
             document.getElementById('dataAtual').value = a.toISOString().split('T')[0];
         }
+        
         function converterParaMinutos(h) { let [hr, mi] = h.split(':').map(Number); return (hr * 60) + mi; }
         function calcularDiferencaEmMinutos(i, f) { let ini = converterParaMinutos(i), fim = converterParaMinutos(f); if (fim < ini) fim += 1440; return fim - ini; }
         function formatarMinutosParaHoras(t) { return `${Math.floor(t/60).toString().padStart(2,'0')}:${(t%60).toString().padStart(2,'0')}`; }
@@ -338,16 +317,24 @@
             localStorage.setItem('p_min', minutosAcumulados);
             localStorage.setItem('p_uH', ultimaMarcacaoTempo || '');
             localStorage.setItem('p_txt', document.getElementById('registro').value);
+            localStorage.setItem('p_pausas', JSON.stringify(pausas));
+            localStorage.setItem('p_ip', inicioPausaAtual);
+            localStorage.setItem('p_mp', motivoPausaAtual);
         }
+        
         window.carregarMemoria = function() {
             if (localStorage.getItem('p_est')) {
                 estadoAtual = localStorage.getItem('p_est');
                 minutosAcumulados = parseInt(localStorage.getItem('p_min')) || 0;
                 ultimaMarcacaoTempo = localStorage.getItem('p_uH') || null;
                 document.getElementById('registro').value = localStorage.getItem('p_txt') || '';
+                try { pausas = JSON.parse(localStorage.getItem('p_pausas')) || []; } catch(e){ pausas = []; }
+                inicioPausaAtual = localStorage.getItem('p_ip') || '';
+                motivoPausaAtual = localStorage.getItem('p_mp') || '';
                 atualizarBotoes();
             }
         }
+        
         window.copiarTexto = function() { document.getElementById('registro').select(); document.execCommand('copy'); }
         window.baixarTXT = function() {
             const blob = new Blob([document.getElementById('registro').value], {type: "text/plain"});
@@ -359,7 +346,7 @@
                 document.getElementById('registro').value = ''; 
                 estadoAtual = 'fora'; 
                 minutosAcumulados = 0; 
-                hEntrada = ""; hInicioPausa = ""; hFimPausa = ""; hSaida = "";
+                hEntrada = ""; hSaida = ""; pausas = []; inicioPausaAtual = ""; motivoPausaAtual = "";
                 atualizarBotoes(); 
                 salvarMemoria(); 
             } 
